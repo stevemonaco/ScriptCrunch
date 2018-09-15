@@ -1,6 +1,6 @@
 # ScriptCrunch
 
-A text analysis utility that applies combinations of DTE, Dictionary, and Substring text compression to text scripts. Aimed towards retro videogame scripts and supports Atlas scripts.
+A text analysis utility that applies combinations of DTE, Dictionary, and Substring text compression to text scripts. Aimed towards retro videogame scripts and supports Atlas scripts. Intended for picking optimal character sequences for best compression, benchmarking included algorithms against scripts, and outputting table encoding files.
 
 ### Archive Notice
 
