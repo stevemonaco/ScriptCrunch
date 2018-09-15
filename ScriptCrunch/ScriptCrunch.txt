@@ -1,0 +1,224 @@
+ScriptCrunch v1.0
+by Klarth (stevemonaco@hotmail.com)
+
+I.   Overview
+II.  Command Line Usage
+III. Configuration File Reference
+IV.  Algorithm Overview
+V.   Best Compression Guidelines and Testing Results
+VI.  Known Bugs
+VII. Thanks
+
+
+
+I. Overview
+     ScriptCrunch is a utility to analyze text frequency, but tailored to the use of videogame
+translation.  It currently can handle DTE, Dictionary, Substring, DTE+Dictionary, and DTE+Substring.
+But past this functionality, it also provides numerous features to enhance the ease of text analysis and reinsertion such
+as: table output, table appending, frequency table output, statistics for compression rates, text output for reinsertion,
+multiple script files, and more.
+
+
+
+II. Command Line Usage
+     ScriptCrunch Config.ini
+
+
+
+III. Configuration File Reference
+     This is where all of the options are stored.  I recommend making a new version of the .ini file for each game or
+     each setting test.
+     You may use ";" as a comment character inside of it on lines by itself
+
+     There are 5 sections of the ini: [DTE], [Dict], [Script], [Output], and [Insert]
+     To get Dictionary+DTE or Substring+DTE analysis, put true for both DTEEnable and DictEnable.
+
+     Format: <required> means it must show up in the .ini with a value, even if it's a false value.
+             <bool> means it's a true/false value
+             <string> means it's a single text string
+             <number> means it must be a number
+             <stringlist> means it can be multiple strings on one line, ie BlockComments=/*,*/,<,>
+             <multiple> means the key can show up multiple times, as in ScriptFile to handle many scripts
+
+     ------------------------------------------------------------------------------------------------------------------
+
+     [DTE] Section
+       DTEEnable<required> - True/False: Enables DTE Analysis, all other DTE options are ignored if
+                             this is false, but still must be present.
+       DTEBegin<required> - First value in the table for DTE.
+       DTEEnd<required> - Last value in the table for DTE.
+
+     Sample, settings for a DTE encode range of [7F-FF] inclusive:
+       [DTE]
+       DTEEnable=true
+       DTEBegin=7F
+       DTEEnd=FF
+
+     ------------------------------------------------------------------------------------------------------------------
+
+     [Dict] Section
+       DictEnable<int, required> - True/False: Enables Dict Analysis, all other Dict options are ignored if
+                              this is false, but still must be present.
+       DictBegin<int, required> - First value in the table for the Dictionary.
+       DictEnd<int, required> - Last value in the table for the Dictionary.
+       DictEntrySize<int, required> - Size of each dictionary entry in hex bytes as it would be in the game.
+                                      Used for table output and proper frequency analysis results.
+       DictUseWholeWords<bool, required> - True/False: Dictionary compression if true, substring if false.
+       DictMinString<int, required> - Minimum string size to put into the dictionary.
+       DictMaxString<int, required> - Maximum string size to put into the dictionary.
+
+     Sample, settings for a Substring encode range of [F800-F900] inclusive with string size of [3-12] inclusive
+       [Dict]
+       DictEnable=true;
+       DictBegin=F800;
+       DictEnd=F9FF;
+       DictUseWholeWords=false
+       DictMinString=3
+       DictMaxString=12
+
+     ------------------------------------------------------------------------------------------------------------------
+
+     [Script] Section
+       ScriptFile<string, required, multiple> - Adds a script file to the analysis.
+       LineComments<stringlist, required> - Adds a line comment that can be anywhere on the line.
+       BlockComments<stringlist, required> - Adds a block comment that comments out partial lines or many lines.
+                                             Must be a multiple of two strings, case sensitive.
+       LineStartComments<stringlist, required> - Adds a comment that must appear at the beginning of a string, case sensitive.
+       IgnorePhrase<string, optional, multiple> - Removes the phrase from the analysis, case sensitive.
+       IgnoreBlocks<stringlist, required> - Removes the block (ie, <,>) from the analysis, case sensitive.
+
+     Sample, settings for two script files, ignoring the phrases "jabberwocky" and partial word "li", and some comments
+       ScriptFile=gametrans1.txt
+       ScriptFile=gametrans2.txt
+       LineComments=//,;
+       LineStartComments=#
+       BlockComments=/*,*/
+       IgnorePhrase=jabberwocky
+       IgnorePhrase=li
+       IgnoreBlocks=<,>
+
+     ------------------------------------------------------------------------------------------------------------------
+
+     [Output] Section
+       OutputTable<string, required> - Filename for the results table
+       InputTable<string, optional> - Filename for the original game table, without DTE/Dictionary.
+                                      If this is provided, OutputTable will be appended to a copy of InputTable.
+       OutputFrequencyTable<string, optional> - Outputs the frequency table results to the filename provided
+       PerformSizeAnalysis<bool, optional> - Performs a mock insertion using InputTable, then one using OutputTable.
+                                             Shows the user an accurate number of bytes saved.  The mock insertions do not
+                                             ignore IgnorePhrase, but do ignore comments.
+
+     Sample, settings to do a size analysis and output a frequency table
+       OutputTable=ff3o.tbl
+       InputTable=ff3.tbl
+       OutputFrequencyTable=ff3freq.txt
+       PerformSizeAnalysis=true
+
+     ------------------------------------------------------------------------------------------------------------------
+
+     [Insert] Section
+       InsertFile<string, required> - Filename to write the DTE/Dictionary table to for reinsertion.
+       EndTag<string, required> - End Tag to write after each dictionary entry, ie <END>.  May be blank.
+       FixedStringLen<int, required> - Used for fixed length dictionary entries.  Set to 0 if it isn't fixed length.
+                                       Prints out PadString once per length that needs padded.
+       PadString<string, required> - Value that should be used to pad a fixed length string, ie <$00>.
+
+
+
+IV. Algorithm Overview
+
+     A. DTE - Basically we add matches for every pair of bytes (overlapping), find the max value, split each string into two,
+              neither containing the DTE match, add the max value to the DTE table, clear the frequency table, and repeat the
+              whole process until the entire DTE table is filled.
+
+     B. Dictionary - Pick out each full word (as the parser read it) without spaces, apostrophes, or punctuation; sort the
+                     list by which saves the most bytes, and fill the dictionary table.
+
+     C. Dictionary+DTE - Perform the Dictionary analysis, remove the words from the input, then do the DTE process.
+
+     D. Substring - Same as DTE, except we add matches for every DictMinString to DictMaxString length, then pick the entry
+                    that saves the most bytes, clear the frequency table, and repeat until the dictionary is filled.
+                    Warning: Extremely slow.  May take 5-10 minutes to process 250KB of text.
+                    This needs a new algorithm but I don't think I'll have the time to work on it.
+
+     E. Substring+DTE - Perform the Substring analysis, remove the words from the input, then do the DTE process.
+                        Warning: Extremely slow.  May take 5-10 minutes to process 250KB of text.
+                        This needs a new algorithm but I don't think I'll have the time to work on it.
+
+
+
+V. Best Compression Guidelines and Testing Results
+
+     Quick Guidelines:
+
+     The more entries you have, the better the compression will be if we don't count the size of the DTE/Dictionary tables.
+
+     Specific Algorithm Guidelines:
+
+     Dictionary - Set DictMinString to 3 and DictMaxString as high as you can.
+     Substring - Set DictMinString to 3 or 4 (depending on script) and DictMaxString to a high value.
+                 Remember, the higher it is, the longer the algorithm will take!  I used 14 for the tests myself.
+     Dictionary+DTE - Set DictMinString to 4 and DictMaxString as high as you can.
+     Substring+DTE - Set DictMinString to 5 and DictMaxString to a high value.
+
+     ------------------------------------------------------------------------------------------------------------------
+
+     Results:
+
+     DTE(a) - a DTE entries
+     Substring(a,b,c) - DictMinString=a, DictMaxString=b, Total dictionary size is c
+     Dict(a,b,c) - DictMinString=a, DictMaxString=b, Total dictionary size is c
+     All Substring and Dict algorithms were used with DictEntrySize = 2
+
+     Here are some results from the FF6 script I had laying around.
+
+     Test Machine - AMD Sempron 3000+, 1GB DDR RAM
+
+     main.txt - 259235 characters.  Original insertion size: 228149 bytes
+     Methods used:
+
+     DTE(64) - 69536 [30.5%]
+     DTE(128) - 84301 [36.9%]
+
+     Dict(3,14,256) - 43377 [19.0%]
+     Dict(3,14,512) - 55676 [24.4%]
+     Dict(4,14,512) - 48912 [21.4%]
+
+     Substring(3,14,256) - 61064 [26.8%] (3 mins, 43 seconds)
+     Substring(4,14,256) - 61415 [26.9%] (4 mins, 55 seconds)
+     Substring(5,14,256) - 58401 [26.9%] (6 minutes 47 seconds)
+     Substring(3,14,512) - 71801 [31.5%] (4 mins, 42 seconds)
+
+     Dict(3,14,256)+DTE(64) - 81933 [35.9%]
+     Dict(3,14,256)+DTE(128) -  92423 [40.5%]
+     Dict(3,14,512)+DTE(64) - 87054 [38.2%]
+     Dict(3,14,512)+DTE(128) - 94735 [41.5%]
+
+     Dict(4,14,256)+DTE(64) - 83682 [36.7%]
+     Dict(4,14,256)+DTE(128) - 94598 [41.5%]
+     Dict(4,14,512)+DTE(64) - 88987 [39.0%]
+     Dict(4,14,512)+DTE(128) - 98202 [43.0%]
+
+     Substring(3,14,256)+DTE(128) - 88884 [39.0%] (4 minutes, 5 seconds)
+     Substring(4,14,256)+DTE(128) - 97907 [42.9%] (4 minutes, 57 seconds)
+     Substring(5,14,256)+DTE(128) - 100101 [43.9%] (6 minutes, 32 seconds)
+     Substring(6,14,256)+DTE(128) - 99867 [43.8%] (7 minutes, 58 seconds)
+
+     Substring(5,14,512)+DTE(128) - 105502 [46.2%] (9 minutes, 24 seconds)
+
+
+
+VI.  Known Bugs
+     Bug: Script insertion statistics when relating to Atlas
+     Reason: This is actually an Atlas bug.  When trying to get Atlas to properly report which line of the script a text insert error
+             was on (due to a character missing from the table), I overlooked my parsing method and it encodes line by line.
+             The problem appears when there's a DTE/dictionary match and the letters are split between lines.  This Atlas bug may cause
+             a < 0.3% discrepancy or so when the script is poorly formatted or relies on a game's internal code for wordwrap.
+             Otherwise, I believe it's accurate.
+
+
+
+VII. Thanks
+     Brodie Thiesfield - Author of the SimpleIni source code I used to read the configuration files with.
+       Homepage - http://code.jellycan.com/simpleini/
+       CodeProject link - http://www.codeproject.com/useritems/SimpleIni.asp
