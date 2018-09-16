@@ -18,7 +18,7 @@ ScriptCrunch is a commandline program and must be ran with your specified config
 
 ### Benchmark
 
-The following are the results of a script benchmarked against several choices in compression algorithm, table sizes, and string lengths. Such benchmarks are insightful in determining whether implementing a simple compression approach is good enough for the target videogame or if a more complex, better compression ratio algorithm such as Huffman or LZ is required.
+The following are the results of a script benchmarked against several choices in compression algorithm, table sizes, and string lengths. Such benchmarks are insightful in determining whether implementing a simple compression approach is good enough for the target videogame or if a more complex, better compression ratio algorithm such as Huffman or LZ is required. The amount of space required to hold DTE, Dictionary, and Substring components for lookup is not accounted for in the benchmark statistics.
 
 ```main.txt - 259235 bytes. Actual uncompressed insertion size: 228149 bytes.```
 
